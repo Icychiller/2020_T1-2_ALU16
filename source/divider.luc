@@ -1,0 +1,66 @@
+module divider (
+    input a[16],  //16-bit input a, dividend
+    input b[16],  //16-bit input b, divisor
+    output quotient[16], //16-bit output quotient
+    output remainder[16] //16-bit output remainder
+  ) {
+  var i;
+  sig result[16][16];
+  sig cmpeq[16], cmpless[16], cmpgreat[16], select[16];
+  comp16bit compeq[16]; //Comparator to check for equivalence
+  comp16bit compless[16]; //Comparator to check for less than
+  adder16bit compadder[16]; //Adder for comparator
+  adder16bit substractor[16]; //Adder to do substraction for remainder
+  always {
+    result = 16x{{16b0}};  
+    substractor.alufn0 = 16x{1};  
+    compadder.alufn0 = 16x{1};
+    compadder.b = 16x{{b}}; //Comparator's adder b input all set to divisor
+    for(i=0;i<16;i++){ //In the first iteration, a input of all adders will have the MSB as the LSB and zeroes for the rest, otherwise it will take the 15 LSBs of the result one level above and the ith MSB of a as the LSB
+      compadder.a[i][0] = a[15-i]; 
+      if(i==0){
+        compadder.a[i][15:1] = 15b0; 
+      }
+      else{
+        compadder.a[i][15:1] = result[i-1][14:0];
+      }
+      //Comparison between a inputs and b inputs of each level
+      compeq.z[i] = compadder.z[i];
+      compeq.v[i] = compadder.v[i];
+      compeq.n[i] = compadder.n[i];
+      compless.z[i] = compadder.z[i];
+      compless.v[i] = compadder.v[i];
+      compless.n[i] = compadder.n[i];
+      compeq.alufn =16x{{b01}}; //Comparator equivalence ALUFN signals
+      compless.alufn = 16x{{b10}}; //Comparator less than ALUFN signals
+      //Comparison results to decide whether substraction is done or not
+      cmpeq[i] = compeq.out[i][0]; //a = b
+      cmpless[i] = compless.out[i][0];  //a < b
+      cmpgreat[i] = ~compless.out[i][0] & ~compeq.out[i][0]; //a > b, using inverters and AND
+      select[i] = ~(~(cmpgreat[i]|cmpeq[i]) & cmpless[i]); //NOR between greater and equal comparator result, NAND between Nor result and less comparator result
+
+      
+      case(select[i]){ //Mux to output zeroes or b for substractor b input
+        b0:
+        substractor.b[i] = 16b0;
+        b1:
+        substractor.b[i] = b;
+        default:
+        substractor.b[i] = 16b0;
+      }
+      substractor.a[i][0] = a[15-i];
+      if(i==0){ 
+        substractor.a[i][15:1] = 15b0; 
+      }
+      else{
+        substractor.a[i][15:1] = result[i-1][14:0];
+      }
+      
+      result[i] = substractor.s[i]; //the remainder of each level is recorded to be used in the next level
+    }
+    for(i=0;i<16;i++){
+      quotient[i] = select[15-i]; //Output quotient is the inverse of selects
+    }
+    remainder = result[15]; //Output remainder is the remainder of the last level
+  }
+}

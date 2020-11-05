@@ -1,0 +1,20 @@
+module comp16bit (
+    input z,          // zvn inputs from adder
+    input v,
+    input n,
+    input alufn[2],   // ALUFN code for Comparison type
+    output out[16]    // Final 16-bit Output
+  ) {
+
+  always {
+    out=16x{0};             // 16-bit filler
+    
+    // 4-input MUX equivalent
+    case(alufn){
+      b01: out[0]=z;        // a=b
+      b10: out[0]=n^v;      // a<b
+      b11: out[0]=z|(n^v);  // a<=b
+      default: out[0]=0;    // In case of error, return false.
+    }
+  }
+}

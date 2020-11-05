@@ -1,0 +1,37 @@
+module adder16bit (
+    input a[16],        // 16bit input a
+    input b[16],        // 16bit input b
+    input alufn0,       // ALUFN Subtractor Bit
+    output s[16],       // final sum output of adder
+    output z,           // Adder conditional outputs
+    output v,
+    output n
+  ) {
+  fulladder adder[16];  // 16 full adders (16-bit Ripple Carry)
+  sig i,j;              // Arbitrary Signal Connectors
+  var k;                // Arbitrary Variable in for-loops
+  always {
+  
+    //adder input assignments
+    adder.a=a;
+    
+    for(k=0;k<16;k++){
+      adder.b[k] = b[k]^alufn0;               // XOR to Flip B input for 2's complement
+    }
+    
+    //Ripple Carry Assignment
+    adder.cin[0]=alufn0;
+    adder.cin[15:1]=adder.cout[14:0];
+    
+    //adder outputs
+    s = adder.s;                              //Sum Output
+    
+    z = ~(|adder.s);                          // All Sum Outputs are 0; Equivalent to: ~( adder.s[0] | adder.s[1] | adder.s[2] ... )
+    
+    i = adder.s[15]&~a[15]&~(b[15]^alufn0);   // Positive Overflow
+    j = ~adder.s[15]&a[15]&(b[15]^alufn0);    // Negative Overflow
+    v = i|j;
+    
+    n=adder.s[15];                            // Negative Indicator
+  }
+}

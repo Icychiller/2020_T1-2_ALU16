@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="CS1DII" board="Alchitry Au" language="Lucid" version="3">
+  <files>
+    <src>mult16bit.luc</src>
+    <src>fulladder.luc</src>
+    <component>pipeline.luc</component>
+    <src>fsmcontrol.luc</src>
+    <src>adder16bit.luc</src>
+    <src>divider.luc</src>
+    <src>boolean.luc</src>
+    <component>counter.luc</component>
+    <src>comp16bit.luc</src>
+    <src>control.luc</src>
+    <src>shifter.luc</src>
+    <src top="true">au_top.luc</src>
+    <component>reset_conditioner.luc</component>
+    <component>edge_detector.luc</component>
+    <component>button_conditioner.luc</component>
+    <constraint lib="true">alchitry.acf</constraint>
+    <constraint lib="true">io.acf</constraint>
+    <constraint lib="true">au.xdc</constraint>
+  </files>
+</project>

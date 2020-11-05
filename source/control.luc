@@ -1,0 +1,215 @@
+module control (
+    input clk,              // clock
+    input rst,              // reset
+    input write_b,          // Signal to toggle between writing in A and B input
+    input auto,             // Signal to toggle between Manual and Automatic Mode
+    input in[16],           // 16-bit Input Signal
+    input alufn[6],         // 6-bit ALUFN Input Signal
+    output out[16],         // 16-bit Output Signal
+    output z,               // outputs for Adder Conditions
+    output v,
+    output n,
+    output alufnexception   // Exception Signal for ALUFN Error
+  ){
+  sig alufn_IN[6];          // Arbitrary Signal for ALUFN input into Modules (Used to switch between Manual and Automatic ALUFN Signals)
+  
+  // Instantiation of ALU Modules
+  adder16bit adder16bit;
+  comp16bit comp16bit;
+  mult16bit mult16bit;
+  shifter shifter;
+  boolean boolean;
+  divider divider;
+  
+  // A/B Signal Registers (Used to Store values when toggling inputs; See below)
+  dff register_a[16](#INIT(0), .clk(clk), .rst(rst));
+  dff register_b[16](#INIT(0), .clk(clk), .rst(rst));
+  
+  // Button Conditioner and Edge Detector for Push Button Input [auto]
+  button_conditioner butcon(.clk(clk));
+  edge_detector butrise(#RISE(1),#FALL(0),.clk(clk));
+  
+  // FSM to store Automatic and Manual testing states
+  fsm auto_toggle(.clk(clk),.rst(rst))={SOFF,SON};
+  
+  // Automatic Testing Module (All Test Cases are Stored in the Module)
+  fsmcontrol fsmcontrol(.clk(clk),.rst(rst));
+  
+  always {
+    // Initialize required Inputs for components and Modules.
+    butcon.in=auto;
+    butrise.in=butcon.out;
+    
+    // FSM states for Push Button (Automatic Mode: ON/OFF)
+    // Switches between states every button press and release (Rising Edge)
+    
+    case(auto_toggle.q){
+      auto_toggle.SOFF:
+        fsmcontrol.run=0;
+        if(butrise.out==1){
+          auto_toggle.d=auto_toggle.SON;
+        }
+      auto_toggle.SON:
+        fsmcontrol.run=1;
+        if(butrise.out==1){
+          auto_toggle.d=auto_toggle.SOFF;
+        }
+      default:                 // If Problems are found, Automatic Mode will not run.
+      fsmcontrol.run=0;    
+    }
+    
+    // Input Assignemnts for A, B and ALUFN. 
+    // If Automatic Mode is off, assign alufn_IN to Manual ALUFN input.
+    // If write_b toggle is off, write 16-bit Input to A. Else if write_b toggle is on, write 16-bit Input to B.
+    
+    if(auto_toggle.q==0){
+      alufn_IN=alufn;
+      if(write_b == 0){        // Special Note, when if() condition is not fulfilled, 
+        register_a.d = in;     // signal is cut and values stored in DFF remain unchanged.
+        }                      // Essentially, Write mode on DFF is disabled.
+      else{
+        register_b.d = in;
+      }
+    }
+      
+    // If Automatic Mode is on, A, B and ALUFN signals are taken from fsmcontrol module.
+    else{
+      alufn_IN=fsmcontrol.alufn;
+      register_a.d = fsmcontrol.fsma;
+      register_b.d = fsmcontrol.fsmb;
+    }
+    
+    //**********************************//
+    // Input Assignemnt for ALU Modules //
+    //**********************************//
+    
+    // Adder Module
+    adder16bit.a = register_a.q;
+    adder16bit.b = register_b.q;
+    adder16bit.alufn0 = alufn_IN[0];
+    
+    // Comparator Module
+    comp16bit.z = adder16bit.z;
+    comp16bit.v = adder16bit.v;
+    comp16bit.n = adder16bit.n;
+    comp16bit.alufn = alufn_IN[2:1];
+    
+    // Shifter Module
+    shifter.a = register_a.q;
+    shifter.b = register_b.q[3:0];
+    shifter.alufn = alufn_IN[1:0];
+    
+    // Boolean Module
+    boolean.a = register_a.q;
+    boolean.b = register_b.q;
+    boolean.alufn = alufn_IN[3:0];
+    
+    // Multiplier Module
+    mult16bit.a = register_a.q;
+    mult16bit.b = register_b.q;
+    
+    // Divider Module
+    divider.a = register_a.q;
+    divider.b = register_b.q;
+    
+    //************************************//
+    // Output Assignments for ALU Modules //
+    //************************************//
+    
+    // Adder ZVN output
+    z = adder16bit.z;
+    v = adder16bit.v;
+    n = adder16bit.n;
+    
+    // Module Outputs
+    // All Valid ALUFN are logged in this Case function. 
+    // Any Invalid ALUFN Values outputs alufnexception signal by default. 16-bit output is also set to 0.
+    // All valid outputs will be assigned to out and pushed to I/O on au_top
+    case(alufn_IN[5:0]){
+        b000000:
+          out = adder16bit.s;
+          alufnexception = 0;
+        b000001:
+          out = adder16bit.s;
+          alufnexception = 0;
+        b000010:
+          out = mult16bit.out;
+          alufnexception = 0;
+        b000100:
+          out = divider.quotient;
+          alufnexception = 0;
+        b000110:
+          out = divider.remainder;
+          alufnexception = 0;
+        b110011:
+          out = comp16bit.out;
+          alufnexception = 0;
+        b110101:
+          out = comp16bit.out;
+          alufnexception = 0;
+        b110111:
+          out = comp16bit.out;
+          alufnexception = 0;
+        b100000:
+          out = shifter.s;
+          alufnexception = 0;
+        b100001:
+          out = shifter.s;
+          alufnexception = 0;
+        b100011:
+          out = shifter.s;
+          alufnexception = 0;
+        b010000:
+          out = boolean.s;
+          alufnexception = 0;
+        b010001:
+          out = boolean.s; 
+          alufnexception = 0;
+        b010010:
+          out = boolean.s;
+          alufnexception = 0;
+        b010011:
+          out = boolean.s;
+          alufnexception = 0;
+        b010100:
+          out = boolean.s;
+          alufnexception = 0;
+        b010101:
+          out = boolean.s;
+          alufnexception = 0;
+        b010110:
+          out = boolean.s;
+          alufnexception = 0;
+        b010111:
+          out = boolean.s; 
+          alufnexception = 0;
+        b011000:
+          out = boolean.s;
+          alufnexception = 0;
+        b011001:
+          out = boolean.s;
+          alufnexception = 0;
+        b011010:
+          out = boolean.s;
+          alufnexception = 0;
+        b011011:
+          out = boolean.s;
+          alufnexception = 0;
+        b011100:
+          out = boolean.s;
+          alufnexception = 0;
+        b011101:
+          out = boolean.s;
+          alufnexception = 0;
+        b011110:
+          out = boolean.s;
+          alufnexception = 0;
+        b011111:
+          out = boolean.s;
+          alufnexception = 0;
+        default:
+        out = 16b0;
+        alufnexception = 1;
+    }
+  }
+}

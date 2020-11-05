@@ -1,0 +1,18 @@
+module fulladder (
+    input a,      // bit a
+    input b,      // bit b
+    input cin,    // carry in bit
+    output s,     // sum output
+    output cout   // carry out bit
+  ) {
+  sig i,j,k;      //Arbitrary Signal Connectors
+
+  //Full Adder Connection (Propagate and Generate Carry Logic)
+  always {
+    s = a^b^cin;
+    i = a&b;
+    j = a^b;
+    k = cin&j;
+    cout = i|k;
+  }
+}

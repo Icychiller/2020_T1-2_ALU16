@@ -1,0 +1,30 @@
+module boolean (
+    input a[16],      // a input signal
+    input b[16],      // b input signal
+    input alufn[4],   // ALUFN code for 'truth table'
+    output s[16]      // Final output
+  ) {
+  var i;              // Arbitrary Variable in for-loop
+  sig j[2];           // Arbitrary Signal for 'mux' selector
+  always {
+    // Run through each bit individually, then assign appropriate signal
+    for(i = 0; i < 16; i++){
+      j[0] = a[i];
+      j[1] = b[i];
+      
+      // Equivalent to 4 Input MUX
+      case(j){
+        b00:
+        s[i] = alufn[0];
+        b01:
+        s[i] = alufn[1];
+        b10:
+        s[i] = alufn[2];
+        b11:
+        s[i] = alufn[3];
+        default:
+        s[i] = 0;
+      }
+    }
+  }
+}

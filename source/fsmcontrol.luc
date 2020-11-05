@@ -1,0 +1,248 @@
+module fsmcontrol (
+    input clk,        // clock
+    input rst,        // reset
+    input run,        // Activation signal to run Automatic Testing
+    output alufn[6],  // Output Automated ALUFN Code
+    output fsma[16],  // Output Automated A signal
+    output fsmb[16]   // Output Automated B signal
+  ) {
+  counter slowclk(#SIZE(1),#DIV(26),.clk(clk),.rst(rst));    // counter to make slow clock
+  edge_detector clkrise(#RISE(1),#FALL(0),.clk(clk));        // rising edge to trigger next state in FSM
+  
+  fsm testerstate(.clk(slowclk.value),.rst(rst))={SRESET,SADD,SSUB,SOR,SAND,SHL,SRA,SHR,SCLE,SEQ,SMUL,SMULN,SDIV,SMOD,SFN0,SFN1};
+  /*
+  List of Test Cases:
+                                                     |                   Inputs                     |        Expected Outputs        |
+     STATE:   | Module                               | A Binary         | B Binary         | ALUFN  | 16-Bit Out       | ALUFN Error |
+     *********************************************************************************************************************************
+     SRESET   | Initial Holding State (AKA State0)   | 0000000000000000 | 0000000000000000 | 000000 | 0000000000000000 |      0      |
+     SADD     | Addition                             | 0000000001010101 | 0000000010101010 | 000000 | 0000000011111111 |      0      |
+     SSUB     | Subtraction                          | 0000000010000000 | 0000000001010101 | 000001 | 0000000010101011 |      0      |
+     SOR      | Boolean OR                           | 0000000010101010 | 0000000001010101 | 011110 | 0000000011111111 |      0      |
+     SAND     | Boolean AND                          | 0000000011111111 | 0000000001010101 | 011000 | 0000000001010101 |      0      |
+     SHL      | Shift Left                           | 0000000010101010 | 0000000000001000 | 100000 | 1010101000000000 |      0      |
+     SRA      | Shift Right Arithmetic               | 1010101000000000 | 0000000000001000 | 100011 | 1111111110101010 |      0      |
+     SHR      | Shift Right                          | 1111111110101010 | 0000000000001000 | 100001 | 0000000011111111 |      0      |
+     SCLE     | Comparator Less Than Equal           | 0000000011111111 | 0000000100000000 | 110111 | 0000000000000001 |      0      |
+     SEQ      | Comparator Equal                     | 0000000011111111 | 0000000100000000 | 110011 | 0000000000000000 |      0      |
+     SMUL     | Positive Multiplication              | 0000000011111111 | 0000000000000011 | 000010 | 0000001011111101 |      0      |
+     SMULN    | Negative Multiplication              | 0000000000110011 | 1111111111111111 | 000010 | 1111111111001101 |      0      |
+     SDIV     | Unsigned Division                    | 0000001011111101 | 0000000000001111 | 000100 | 0000000000110011 |      0      |
+     SMOD     | Modulo                               | 0000000000110011 | 0000000000001010 | 000110 | 0000000000000001 |      0      |
+     SFN0     | Correct ALUFN Code                   | 0000000000000001 | 0000000000000001 | 000000 | 0000000000000010 |      0      |
+     SFN1     | Incorrect ALUFN Code                 | 0000000000000001 | 0000000000000001 | 001111 | 0000000000000000 |      1      |
+     
+  */
+  always {
+    //inputs required for edge_detector component
+    clkrise.in=slowclk.value;
+    
+    //initialize value
+    alufn=0;
+    fsma=0;
+    fsmb=0;
+    
+    //FSM cases as below. Refer to guide above for automated testing loop information.
+    case(testerstate.q){
+      testerstate.SRESET:
+        if(run==1 && clkrise.out==1){          //Initial Start Condition.
+          testerstate.d=testerstate.SADD;
+        }
+      
+      testerstate.SADD:
+        fsma=8b01010101;
+        fsmb=8b10101010;
+        alufn=8b000000;
+        if(clkrise.out==1&&run==1){            // run condition must be active for auto-tester to continue...
+          testerstate.d=testerstate.SSUB;
+        }
+        else{                                  // ...otherwise, remain in state...
+          if(run==0){                          // ...or set back to reset state when switching to manual mode
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        
+      testerstate.SSUB:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SOR;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b000001;
+        fsma=9b100000000;
+        fsmb=8b01010101;
+        
+      testerstate.SOR:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SAND;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b011110;
+        fsma=8b10101010;
+        fsmb=8b01010101;
+        
+      testerstate.SAND:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SHL;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b011000;
+        fsma=8b11111111;
+        fsmb=8b01010101;
+        
+      testerstate.SHL:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SRA;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b100000;
+        fsma=8b10101010;
+        fsmb=4b1000;
+        
+      testerstate.SRA:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SHR;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b100011;
+        fsma=16b1010101000000000;
+        fsmb=4b1000;
+        
+      testerstate.SHR:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SCLE;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b100001;
+        fsma=16b1111111110101010;
+        fsmb=4b1000;
+      
+      testerstate.SCLE:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SEQ;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b110111;
+        fsma=8b11111111;
+        fsmb=9b100000000;
+      
+      testerstate.SEQ:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SMUL;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b110011;
+        fsma=8b11111111;
+        fsmb=9b100000000;
+      
+      testerstate.SMUL:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SMULN;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b000010;
+        fsma=8b11111111;
+        fsmb=2b11;
+      
+      testerstate.SMULN:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SDIV;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b000010;
+        fsma=6b110011;
+        fsmb=16b1111111111111111;
+      
+      testerstate.SDIV:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SMOD;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b000100;
+        fsma=10b1011111101;
+        fsmb=4b1111;
+        
+      testerstate.SMOD:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SFN0;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b000110;
+        fsma=6b110011;
+        fsmb=4b1010;
+        
+      testerstate.SFN0:
+        if(clkrise.out==1&&run==1){
+          testerstate.d=testerstate.SFN1;
+        }
+        else{
+          if(run==0){
+            testerstate.d=testerstate.SRESET;
+          }
+        }
+        alufn=6b0;
+        fsma=1b1;
+        fsmb=1b1;
+        
+      testerstate.SFN1:
+        if(clkrise.out==1){
+          testerstate.d=testerstate.SRESET;
+        }
+        alufn=6b001111;
+        fsma=1b1;
+        fsmb=1b1;
+        
+      default:
+        alufn=0;
+        fsma=0;
+        fsmb=0;
+    }
+  }
+}

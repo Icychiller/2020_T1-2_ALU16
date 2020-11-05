@@ -1,0 +1,80 @@
+module shifter (
+    input a[16], //16-bit input a
+    input b[4], //4-bit input b
+    input alufn[2],  //2-bit ALUFN input, ALUFN0 and ALUFN1
+    output s[16] //16-bit output
+  ) {
+  sig w[16]; 
+  sig x[16]; 
+  sig y[16];
+  sig z[16];
+  sig si[16];
+  sig j;
+  var i;
+  always {
+    if(alufn[0] == 1){  //Mux to inverse the input
+      for(i=0;i<15;i++){
+        w[i] = a[15-i];
+      }
+    }
+    else{
+      w = a;
+    }
+    if(alufn[1] == 1){ //Mux to select replacement bits after shift
+      j = a[15];
+    }
+    else{
+      j = b0;
+    }
+    
+    case(b[3]){ //Mux to shift-left by 8
+      b0:
+      x = w;
+      b1:
+      x[15:8] = w[7:0];
+      x[7:0] = 8x{j};
+      default:
+      x = w;
+    }
+    
+    case(b[2]){ //Mux to shift-left by 4
+      b0:
+      y = x;
+      b1:
+      y[15:4] = w[11:0];
+      y[3:0] = 4x{j};
+      default:
+      y = x;
+    }
+    
+    case(b[1]){ //Mux to shift-left by 2
+      b0:
+      z = y;
+      b1:
+      z[15:2] = y[13:0];
+      z[1:0] = 2x{j};
+      default:
+      z = y;
+    }
+    
+    case(b[0]){ //Mux to shift-left by 1
+      b0:
+      si = z;
+      b1:
+      si[15:1] = z[14:0];
+      si[0] = j;
+      default:
+      si = z;
+    }
+    
+    if(alufn[0] == 1){
+      for(i=0;i<15;i++){ //Mux to inverse the output
+        s[i] = si[15-i];
+      }
+    }
+    else{
+      s = si;
+    }
+  }
+}
+

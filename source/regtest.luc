@@ -1,0 +1,15 @@
+module regtest (
+    input clk,  // clock
+    input rst,  // reset
+    input a,
+    input write,
+    output out
+  ) {
+  dff register_test(#INIT(0), .clk(clk), .rst(rst));
+  always {
+    if(write){
+    register_test.d = a;
+    }
+    out = register_test.q;
+  }
+}
